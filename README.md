@@ -44,7 +44,9 @@ A bootstrapper mod that fixes various bugs related to Minecraft: Bedrock Edition
     ```
 
     - To enable a feature, set their value to `1`.
+
     - To disable a feature, set their value to `0`.
+
 
     |Name|Description|
     |-|-|
