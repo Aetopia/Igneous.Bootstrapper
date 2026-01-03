@@ -1,9 +1,9 @@
-# Igneous
+# Igneous Bootstrapper
 
 > [!CAUTION]
 > **Only supported on Windows x64!**
 
-Fixes various bugs related to Minecraft: Bedrock Edition (GDK).
+A bootstrapper mod that fixes various bugs related to Minecraft: Bedrock Edition (GDK).
 
 ## Fixes
 
@@ -25,6 +25,29 @@ Fixes various bugs related to Minecraft: Bedrock Edition (GDK).
     ```
 
 - Place the dynamic link library in the opened folder & launch the game.
+
+### Configuration
+
+- Run the following command in PowerShell to find where the game is located:
+
+    ```powershell
+    & "$ENV:SystemRoot\explorer.exe" "$((Get-AppxPackage "Microsoft.MinecraftUWP").InstallLocation)"
+    ```
+
+- Create a new file called `Igneous.cfg`, add the following contents & save the file to the game's install location:
+
+   ```ini
+   [Igneous]
+   D3D11 = 0
+   Cursor = 0
+   Tearing = 0
+   ```
+
+|Name|Description|
+|-|-|
+|`D3D11`|Forces DirectX 11 to be used instead of DirectX 12.|
+|`Cursor` |Fixes MCPE-15796, MCPE-230832 & improves cursor handling.|
+|`Tearing`|Fixes MCPE-98861,MCPE-110006, MCPE-166745 & fixes V-Sync off. |
 
 ## FAQ
 

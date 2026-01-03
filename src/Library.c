@@ -1,8 +1,14 @@
 #include <minhook.h>
 #include <dxgi1_4.h>
+#include <d3d12.h>
+#include <shlwapi.h>
 
 struct
 {
+    BOOL bTearing;
+    BOOL bCursor;
+    BOOL bD3D11;
+
     HWND hWnd;
     BOOL bClipped;
 
@@ -67,19 +73,28 @@ HRESULT _CreateSwapChainForHwnd(PVOID This, PVOID pDevice, HWND hWnd, DXGI_SWAP_
 {
     static BOOL bHooked = {};
 
-    pDesc->Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+    if (_.bTearing)
+        pDesc->Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+
     HRESULT hResult =
         _.CreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
 
     if (!bHooked && !hResult)
     {
-        MH_CreateHook((*ppSwapChain)->lpVtbl->Present, _Present, (PVOID)&_.Present);
-        MH_CreateHook((*ppSwapChain)->lpVtbl->ResizeBuffers, _ResizeBuffers, (PVOID)&_.ResizeBuffers);
-        MH_CreateHook((*ppSwapChain)->lpVtbl->ResizeBuffers1, _ResizeBuffers1, (PVOID)&_.ResizeBuffers1);
-        MH_EnableHook(MH_ALL_HOOKS);
+        if (_.bTearing)
+        {
+            MH_CreateHook((*ppSwapChain)->lpVtbl->Present, _Present, (PVOID)&_.Present);
+            MH_CreateHook((*ppSwapChain)->lpVtbl->ResizeBuffers, _ResizeBuffers, (PVOID)&_.ResizeBuffers);
+            MH_CreateHook((*ppSwapChain)->lpVtbl->ResizeBuffers1, _ResizeBuffers1, (PVOID)&_.ResizeBuffers1);
+            MH_EnableHook(MH_ALL_HOOKS);
+        }
 
-        _.WindowProc = (PVOID)SetWindowLongPtrW(hWnd, GWLP_WNDPROC, (LONG_PTR)_WindowProc);
-        SetClassLongPtrW(_.hWnd = hWnd, GCLP_HCURSOR, (LONG_PTR)LoadCursorW(NULL, IDC_ARROW));
+        if (_.bCursor)
+        {
+            _.WindowProc = (PVOID)SetWindowLongPtrW(hWnd, GWLP_WNDPROC, (LONG_PTR)_WindowProc);
+            SetClassLongPtrW(_.hWnd = hWnd, GCLP_HCURSOR, (LONG_PTR)LoadCursorW(NULL, IDC_ARROW));
+        }
+
         bHooked = TRUE;
     }
 
@@ -111,15 +126,39 @@ BOOL _ClipCursor(PRECT pRect)
     return _.ClipCursor(pRect);
 }
 
+HRESULT _D3D12CreateDevice(PVOID pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, PVOID riid, PVOID ppDevice)
+{
+    return DXGI_ERROR_INVALID_CALL;
+}
+
 ATOM _RegisterClassExW(PWNDCLASSEXW pClass)
 {
     static BOOL bHooked = {};
 
     if (!bHooked)
     {
-        MH_CreateHook(SetCursor, (PVOID)_SetCursor, NULL);
-        MH_CreateHook(SetCursorPos, (PVOID)_SetCursorPos, NULL);
-        MH_CreateHook(ClipCursor, _ClipCursor, (PVOID)&_.ClipCursor);
+        WCHAR szPath[MAX_PATH] = {};
+        GetModuleFileNameW(NULL, szPath, MAX_PATH);
+
+        PathRemoveFileSpecW(szPath);
+        PathCombineW(szPath, szPath, L"Igneous.cfg");
+
+        _.bD3D11 = GetPrivateProfileIntW(L"Igneous", L"D3D11", FALSE, szPath) == TRUE;
+        _.bCursor = GetPrivateProfileIntW(L"Igneous", L"Cursor", FALSE, szPath) == TRUE;
+        _.bTearing = GetPrivateProfileIntW(L"Igneous", L"Tearing", FALSE, szPath) == TRUE;
+
+        if (_.bD3D11)
+        {
+            HMODULE hModule = LoadLibraryExW(L"D3D12", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+            MH_CreateHook(GetProcAddress(hModule, "D3D12CreateDevice"), _D3D12CreateDevice, NULL);
+        }
+
+        if (_.bCursor)
+        {
+            MH_CreateHook(SetCursor, (PVOID)_SetCursor, NULL);
+            MH_CreateHook(SetCursorPos, (PVOID)_SetCursorPos, NULL);
+            MH_CreateHook(ClipCursor, _ClipCursor, (PVOID)&_.ClipCursor);
+        }
 
         IDXGIFactory2 *pFactory = {};
         CreateDXGIFactory(&IID_IDXGIFactory2, (PVOID)&pFactory);
