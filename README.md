@@ -36,18 +36,23 @@ A bootstrapper mod that fixes various bugs related to Minecraft: Bedrock Edition
 
 - Create a new file called `Igneous.cfg`, add the following contents & save the file to the game's install location:
 
-   ```ini
-   [Igneous]
-   D3D11 = 0
-   Cursor = 0
-   Tearing = 0
-   ```
+    ```ini
+    [Igneous]
+    D3D11 = 0
+    Cursor = 0
+    Tearing = 0
+    ```
 
-|Name|Description|
-|-|-|
-|`D3D11`|Forces DirectX 11 to be used instead of DirectX 12.|
-|`Cursor` |Fixes MCPE-15796, MCPE-230832 & improves cursor handling.|
-|`Tearing`|Fixes MCPE-98861,MCPE-110006, MCPE-166745 & fixes V-Sync off. |
+    - To enable a feature, set their value to `1`.
+    - To disable a feature, set their value to `0`.
+
+    |Name|Description|
+    |-|-|
+    |`D3D11`|Forces DirectX 11 to be used instead of DirectX 12.|
+    |`Cursor`|Fixes MCPE-15796, MCPE-230832 & improves cursor handling.|
+    |`Tearing`|Fixes MCPE-98861,MCPE-110006, MCPE-166745 & fixes V-Sync off.|
+
+    
 
 ## FAQ
 
