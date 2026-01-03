@@ -1,5 +1,12 @@
 # Igneous Bootstrapper
 
+> [!IMPORTANT]
+> - This is a modified fork of [Igneous](https://github.com/Aetopia/Igneous).
+>
+> - This fork allows users to toggle features of Igneous.
+>
+> - It can be used bootstrap features at game startup.
+
 > [!CAUTION]
 > **Only supported on Windows x64!**
 
