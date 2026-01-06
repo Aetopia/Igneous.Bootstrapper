@@ -5,12 +5,12 @@
 
 struct
 {
-    BOOL bTearing;
-    BOOL bCursor;
     BOOL bD3D11;
+    BOOL bCursor;
+    BOOL bTearing;
 
     HWND hWnd;
-    BOOL bClipped;
+    volatile BOOL bClipped;
 
     WNDPROC WindowProc;
     PEXCEPTION_HANDLER CxxFrameHandler;
@@ -38,13 +38,6 @@ PVOID __wrap_memset(PVOID Destination, BYTE Data, SIZE_T Count)
 __declspec(dllexport) EXCEPTION_DISPOSITION __CxxFrameHandler4(PVOID pExcept, PVOID pRN, PVOID pContext, PVOID pDC)
 {
     return _.CxxFrameHandler(pExcept, pRN, pContext, pDC);
-}
-
-LRESULT _WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    if (uMsg == WM_WINDOWPOSCHANGED && _.bClipped)
-        ClipCursor(&(RECT){});
-    return CallWindowProcW(_.WindowProc, hWnd, uMsg, wParam, lParam);
 }
 
 HRESULT _Present(PVOID This, UINT SyncInterval, UINT Flags)
@@ -81,6 +74,8 @@ HRESULT _CreateSwapChainForHwnd(PVOID This, PVOID pDevice, HWND hWnd, DXGI_SWAP_
 
     if (!bHooked && !hResult)
     {
+        _.hWnd = hWnd;
+
         if (_.bTearing)
         {
             MH_CreateHook((*ppSwapChain)->lpVtbl->Present, _Present, (PVOID)&_.Present);
@@ -89,16 +84,15 @@ HRESULT _CreateSwapChainForHwnd(PVOID This, PVOID pDevice, HWND hWnd, DXGI_SWAP_
             MH_EnableHook(MH_ALL_HOOKS);
         }
 
-        if (_.bCursor)
-        {
-            _.WindowProc = (PVOID)SetWindowLongPtrW(hWnd, GWLP_WNDPROC, (LONG_PTR)_WindowProc);
-            SetClassLongPtrW(_.hWnd = hWnd, GCLP_HCURSOR, (LONG_PTR)LoadCursorW(NULL, IDC_ARROW));
-        }
-
         bHooked = TRUE;
     }
 
     return hResult;
+}
+
+HRESULT _D3D12CreateDevice(PVOID pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, PVOID riid, PVOID ppDevice)
+{
+    return DXGI_ERROR_INVALID_CALL;
 }
 
 BOOL _SetCursorPos(INT X, INT Y)
@@ -126,16 +120,18 @@ BOOL _ClipCursor(PRECT pRect)
     return _.ClipCursor(pRect);
 }
 
-HRESULT _D3D12CreateDevice(PVOID pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, PVOID riid, PVOID ppDevice)
+LRESULT _WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    return DXGI_ERROR_INVALID_CALL;
+    if (uMsg == WM_WINDOWPOSCHANGED && _.bClipped)
+        ClipCursor(&(RECT){});
+    return CallWindowProcW(_.WindowProc, hWnd, uMsg, wParam, lParam);
 }
 
 ATOM _RegisterClassExW(PWNDCLASSEXW pClass)
 {
     static BOOL bHooked = {};
 
-    if (!bHooked)
+    if (!bHooked && CompareStringOrdinal(L"Bedrock", -1, pClass->lpszClassName, -1, FALSE) == CSTR_EQUAL)
     {
         WCHAR szPath[MAX_PATH] = {};
         GetModuleFileNameW(NULL, szPath, MAX_PATH);
@@ -147,17 +143,21 @@ ATOM _RegisterClassExW(PWNDCLASSEXW pClass)
         _.bCursor = GetPrivateProfileIntW(L"Igneous", L"Cursor", FALSE, szPath) == TRUE;
         _.bTearing = GetPrivateProfileIntW(L"Igneous", L"Tearing", FALSE, szPath) == TRUE;
 
+        if (_.bCursor)
+        {
+            _.WindowProc = pClass->lpfnWndProc;
+            pClass->lpfnWndProc = _WindowProc;
+            pClass->hCursor = LoadCursorW(NULL, IDC_ARROW);
+
+            MH_CreateHook(SetCursor, (PVOID)_SetCursor, NULL);
+            MH_CreateHook(SetCursorPos, (PVOID)_SetCursorPos, NULL);
+            MH_CreateHook(ClipCursor, _ClipCursor, (PVOID)&_.ClipCursor);
+        }
+
         if (_.bD3D11)
         {
             HMODULE hModule = LoadLibraryExW(L"D3D12", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
             MH_CreateHook(GetProcAddress(hModule, "D3D12CreateDevice"), _D3D12CreateDevice, NULL);
-        }
-
-        if (_.bCursor)
-        {
-            MH_CreateHook(SetCursor, (PVOID)_SetCursor, NULL);
-            MH_CreateHook(SetCursorPos, (PVOID)_SetCursorPos, NULL);
-            MH_CreateHook(ClipCursor, _ClipCursor, (PVOID)&_.ClipCursor);
         }
 
         IDXGIFactory2 *pFactory = {};
@@ -165,9 +165,10 @@ ATOM _RegisterClassExW(PWNDCLASSEXW pClass)
 
         MH_CreateHook(pFactory->lpVtbl->CreateSwapChainForHwnd, _CreateSwapChainForHwnd,
                       (PVOID)&_.CreateSwapChainForHwnd);
-        MH_EnableHook(MH_ALL_HOOKS);
 
+        MH_EnableHook(MH_ALL_HOOKS);
         pFactory->lpVtbl->Release(pFactory);
+
         bHooked = TRUE;
     }
 
