@@ -10,7 +10,7 @@ VALUE "CompanyName", "Aetopia"
 VALUE "FileDescription", "Igneous Bootstrapper"
 VALUE "ProductName", "Igneous Bootstrapper"
 VALUE "ProductVersion",	"1.1.1.0"
-VALUE "LegalCopyright", "Copyright (C) 2025 Aetopia"
+VALUE "LegalCopyright", "Copyright (C) 2025 - 26 Aetopia"
 END
 END
 BLOCK "VarFileInfo"

@@ -5,13 +5,6 @@
 
 struct
 {
-    BOOL bD3D11;
-    BOOL bCursor;
-    BOOL bTearing;
-
-    HWND hWnd;
-    volatile BOOL bClipped;
-
     WNDPROC WindowProc;
     PEXCEPTION_HANDLER CxxFrameHandler;
 
@@ -21,6 +14,12 @@ struct
     HRESULT (*ResizeBuffers)(PVOID, UINT, UINT, UINT, DXGI_FORMAT, UINT);
     HRESULT (*CreateSwapChainForHwnd)(PVOID, PVOID, HWND, PVOID, PVOID, PVOID, PVOID);
     HRESULT (*ResizeBuffers1)(PVOID, UINT, UINT, UINT, DXGI_FORMAT, UINT, PVOID, PVOID);
+
+    HWND hWnd;
+    BOOL bD3D11;
+    BOOL bCursor;
+    BOOL bTearing;
+    BOOL bClipped;
 } _ = {};
 
 PVOID __wrap_memcpy(PVOID Destination, PVOID Source, SIZE_T Count)
@@ -42,6 +41,14 @@ __declspec(dllexport) EXCEPTION_DISPOSITION __CxxFrameHandler4(PVOID pExcept, PV
 
 HRESULT _Present(PVOID This, UINT SyncInterval, UINT Flags)
 {
+    static BOOL bHooked = {};
+
+    if (!bHooked)
+    {
+        bHooked = TRUE;
+        return DXGI_ERROR_DEVICE_RESET;
+    }
+
     if (!SyncInterval)
         Flags |= DXGI_PRESENT_ALLOW_TEARING;
     return _.Present(This, SyncInterval, Flags);
@@ -133,6 +140,8 @@ ATOM _RegisterClassExW(PWNDCLASSEXW pClass)
 
     if (!bHooked && CompareStringOrdinal(L"Bedrock", -1, pClass->lpszClassName, -1, FALSE) == CSTR_EQUAL)
     {
+        pClass->hbrBackground = GetStockObject(BLACK_BRUSH);
+
         WCHAR szPath[MAX_PATH] = {};
         GetModuleFileNameW(NULL, szPath, MAX_PATH);
 
