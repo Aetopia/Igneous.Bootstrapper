@@ -129,8 +129,23 @@ BOOL _ClipCursor(PRECT pRect)
 
 LRESULT _WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    if (uMsg == WM_WINDOWPOSCHANGED && _.bClipped)
-        ClipCursor(&(RECT){});
+    switch (uMsg)
+    {
+    case WM_WINDOWPOSCHANGED:
+        if (_.bClipped)
+            ClipCursor(&(RECT){});
+        break;
+
+    case WM_SYSCOMMAND:
+        switch (GET_SC_WPARAM(wParam))
+        {
+        case SC_KEYMENU:
+        case SC_MOUSEMENU:
+            return 0;
+        }
+        break;
+    }
+
     return CallWindowProcW(_.WindowProc, hWnd, uMsg, wParam, lParam);
 }
 
@@ -140,6 +155,9 @@ ATOM _RegisterClassExW(PWNDCLASSEXW pClass)
 
     if (!bHooked && CompareStringOrdinal(L"Bedrock", -1, pClass->lpszClassName, -1, FALSE) == CSTR_EQUAL)
     {
+        _.WindowProc = pClass->lpfnWndProc;
+        
+        pClass->lpfnWndProc = _WindowProc;
         pClass->hbrBackground = GetStockObject(BLACK_BRUSH);
 
         WCHAR szPath[MAX_PATH] = {};
@@ -154,10 +172,7 @@ ATOM _RegisterClassExW(PWNDCLASSEXW pClass)
 
         if (_.bCursor)
         {
-            _.WindowProc = pClass->lpfnWndProc;
-            pClass->lpfnWndProc = _WindowProc;
             pClass->hCursor = LoadCursorW(NULL, IDC_ARROW);
-
             MH_CreateHook(SetCursor, (PVOID)_SetCursor, NULL);
             MH_CreateHook(SetCursorPos, (PVOID)_SetCursorPos, NULL);
             MH_CreateHook(ClipCursor, _ClipCursor, (PVOID)&_.ClipCursor);
