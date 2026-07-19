@@ -1,3 +1,7 @@
+> [!CAUTION]
+> This project is deprecated.
+> - **Use [Igneous](https://github.com/Aetopia/Igneous) instead.**
+
 # Igneous Bootstrapper
 
 > [!IMPORTANT]
